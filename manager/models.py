@@ -9,6 +9,9 @@ from django.conf import settings
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 import ffmpeg
+import logging
+
+logger = logging.getLogger(__name__)
 
 # 1. タグモデル
 class Tag(models.Model):
@@ -114,8 +117,9 @@ class Attraction(models.Model):
                 self.hls_playlist = os.path.join('videos', 'hls', str(self.id), 'playlist.m3u8')
                 self.__class__.objects.filter(pk=self.pk).update(hls_playlist=self.hls_playlist)
             except ffmpeg.Error as e:
-                print('stdout:', e.stdout.decode('utf8'))
-                print('stderr:', e.stderr.decode('utf8'))
+                logger.error(f"Error during HLS conversion for attraction ID {self.pk}:")
+                logger.error(f"FFmpeg stdout: {e.stdout.decode('utf8', errors='ignore')}")
+                logger.error(f"FFmpeg stderr: {e.stderr.decode('utf8', errors='ignore')}")
                 self.hls_playlist = None
                 self.__class__.objects.filter(pk=self.pk).update(hls_playlist=self.hls_playlist)
         # 動画ファイルがクリアされた場合
