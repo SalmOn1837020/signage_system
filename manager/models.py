@@ -67,8 +67,6 @@ class Attraction(models.Model):
     total_visitors = models.PositiveIntegerField(default=0, verbose_name="累計来場者数")
 
     is_theater = models.BooleanField(default=False, verbose_name="演劇フラグ")
-    start_time = models.DateTimeField(verbose_name="開演時間", null=True, blank=True)
-    end_time = models.DateTimeField(verbose_name="閉演時間", null=True, blank=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, verbose_name="現在の状態", default='available')
     likes_count = models.PositiveIntegerField(default=0, verbose_name="高評価数")
@@ -180,6 +178,20 @@ class UserActivity(models.Model):
     class Meta:
         verbose_name = "ユーザー行動履歴"
         verbose_name_plural = "ユーザー行動履歴一覧"
+
+# Showtime Model
+class Showtime(models.Model):
+    attraction = models.ForeignKey(Attraction, related_name='showtimes', on_delete=models.CASCADE, verbose_name="出し物")
+    start_datetime = models.DateTimeField(verbose_name="開始日時")
+    end_datetime = models.DateTimeField(verbose_name="終了日時")
+
+    class Meta:
+        verbose_name = "公演時間"
+        verbose_name_plural = "公演時間一覧"
+        ordering = ['start_datetime'] # Optional: default ordering
+
+    def __str__(self):
+        return f"{self.attraction.attraction_name} ({self.start_datetime.strftime('%Y-%m-%d %H:%M')} - {self.end_datetime.strftime('%H:%M')})"
 
 # 7. システム全体のログモデル
 class SystemLog(models.Model):

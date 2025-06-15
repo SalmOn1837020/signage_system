@@ -164,21 +164,30 @@
                 const card = document.createElement('div');
                 card.className = 'card';
                 
-                let statusText = attraction.status_display;
-                // テキストを仕様に合わせて調整
+                // Inside renderPage function, for each attraction:
+                let statusKey = attraction.status; // Default for non-theater
+                let statusText = attraction.status_display; // Default for non-theater
+
                 if (attraction.is_theater) {
-                    if (attraction.status === 'closed') statusText = '終了';
-                    else if (attraction.status === 'soon') statusText = '開演間近';
-                    else if (attraction.status === 'showing') statusText = '上演中';
-                    else statusText = '準備中';
+                    // API now provides status_key and display_text directly for theater if get_theatrical_status returned info
+                    statusKey = attraction.status; // This is now the status_key from theatrical_info
+                    statusText = attraction.status_display; // This is display_text from theatrical_info
+                    // 'minutes_to_show' is also available in attraction object if applicable
+                    if (attraction.minutes_to_show !== undefined) {
+                        // The display_text from API should already include this, e.g., "開演まであとX分"
+                        // If not, you could append it: statusText += ` (あと${attraction.minutes_to_show}分)`;
+                    }
                 } else {
-                    if (attraction.status === 'closed') statusText = '閉店';
+                    // For non-theater, ensure "閉店" is handled if status is 'closed'
+                    if (attraction.status === 'closed') {
+                        statusText = '閉店';
+                    }
                 }
                 
                 card.innerHTML = `
                     <div class="card-location">${attraction.group}</div>
                     <div class="card-name"><h2>${attraction.name}</h2></div>
-                    <div class="card-status status-${attraction.status}">${statusText}</div>
+                    <div class="card-status status-${statusKey}">${statusText}</div>
                 `;
                 container.appendChild(card);
             }

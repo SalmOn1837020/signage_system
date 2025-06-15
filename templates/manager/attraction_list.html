@@ -176,26 +176,28 @@
                         {% endif %}
                     </h3>
                     <p>
-                        <span class="status-display status-{{ attraction.status }}">
-                            {% if attraction.is_theater and attraction.status != 'closed' %}
+                        {% if attraction.is_theater %}
+                            {% with status_info=attraction.theatrical_status_info %}
+                                <span class="status-display status-{{ status_info.status_key|default:'unknown' }}">
+                                    {{ status_info.display_text|default:'状態不明' }}
+                                </span>
+                            {% endwith %}
+                        {% else %}
+                            <span class="status-display status-{{ attraction.status }}">
                                 {{ attraction.get_status_display }}
-                            {% elif attraction.status == 'closed' %}
-                                閉店
-                            {% else %}
-                                {{ attraction.get_status_display }}
-                            {% endif %}
-                        </span>
+                            </span>
+                        {% endif %}
                         <span>{{ attraction.group_name }}</span>
                     </p>
                 </div>
                 <!-- 演劇や閉店などの特殊状態ラベル -->
-                {% if attraction.status == 'showing' %}
+                {# {% if attraction.status == 'showing' %}
                     <span class="status-label label-showing">上演中</span>
                 {% elif attraction.status == 'soon' %}
                     <span class="status-label label-soon">開演間近</span>
                 {% elif attraction.status == 'closed' %}
                     <span class="status-label label-closed">終了</span>
-                {% endif %}
+                {% endif %} #}
 
                 <i class="ri-arrow-right-s-line"></i>
             </a>

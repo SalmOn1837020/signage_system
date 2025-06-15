@@ -5,7 +5,7 @@ from django.urls import path
 from django.shortcuts import render
 from django.db.models import F
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Attraction, Like, GachaTicket, UserActivity, SystemLog, Tag
+from .models import User, Attraction, Like, GachaTicket, UserActivity, SystemLog, Tag, Showtime
 
 # --- 管理サイトのカスタマイズ ---
 class CustomAdminSite(admin.AdminSite):
@@ -45,6 +45,11 @@ class UserAdmin(BaseUserAdmin):
     list_filter = BaseUserAdmin.list_filter + ('role',)
     filter_horizontal = ('managed_attractions',)
 
+class ShowtimeInline(admin.TabularInline):
+    model = Showtime
+    extra = 1 # Number of empty forms to display
+    fields = ('start_datetime', 'end_datetime')
+
 class AttractionAdmin(admin.ModelAdmin):
     list_display = ('attraction_name', 'group_name', 'status', 'tags_display', 'current_visitors', 'capacity')
     list_filter = ('is_theater', 'status', 'tags')
@@ -52,12 +57,13 @@ class AttractionAdmin(admin.ModelAdmin):
     fieldsets = [
         ('基本情報', {'fields': ['attraction_name', 'group_name', 'tags', 'description', 'video_file']}),
         ('人数・状態管理', {'fields': ['capacity', 'current_visitors', 'status']}),
-        ('演劇設定', {'fields': ['is_theater', 'start_time', 'end_time'], 'classes': ('collapse',),}),
+        ('演劇設定', {'fields': ['is_theater'], 'classes': ('collapse',),}),
         ('集計情報', {'fields': ['total_visitors', 'likes_count']}),
         ('QRコードID', {'fields': ['entry_qr_id', 'exit_qr_id']}),
     ]
     readonly_fields = ('total_visitors', 'likes_count', 'entry_qr_id', 'exit_qr_id')
     filter_horizontal = ('tags',)
+    inlines = [ShowtimeInline]
 
     # 一覧ページにタグを表示するためのメソッド
     def tags_display(self, obj):
@@ -87,6 +93,11 @@ class LikeAdmin(admin.ModelAdmin):
     list_display = ('user', 'attraction', 'created_at')
     search_fields = ('user__username', 'attraction__attraction_name')
 
+class ShowtimeAdmin(admin.ModelAdmin):
+    list_display = ('attraction', 'start_datetime', 'end_datetime')
+    list_filter = ('attraction',) # Filter by attraction
+    search_fields = ('attraction__attraction_name',) # Search by attraction name
+
 # --- モデルをカスタム管理サイトに登録 ---
 custom_admin_site.register(Tag, TagAdmin)
 custom_admin_site.register(User, UserAdmin)
@@ -95,3 +106,4 @@ custom_admin_site.register(SystemLog, SystemLogAdmin)
 custom_admin_site.register(GachaTicket, GachaTicketAdmin)
 custom_admin_site.register(Like, LikeAdmin)
 custom_admin_site.register(UserActivity, UserActivityAdmin)
+custom_admin_site.register(Showtime, ShowtimeAdmin)
