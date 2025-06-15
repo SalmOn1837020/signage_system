@@ -1,0 +1,116 @@
+<!-- templates/manager/qr_code_list.html -->
+{% extends 'manager/base.html' %} {# ★ 全ページの基礎となるbase.htmlを継承する #}
+
+{% block page_title %}{{ page_title }}{% endblock %} {# ★ ヘッダーにページタイトルを表示 #}
+
+{% block extra_head %}
+<style>
+    /* このページ固有のスタイルはここに追加 */
+    .print-header {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .print-button {
+        background-color: var(--accent-color);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .print-button:hover {
+        background-color: #0056b3;
+    }
+    .qr-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+    .qr-card {
+        background-color: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        page-break-inside: avoid; /* 印刷時にカードが途中で改ページされないように */
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .qr-card h2 {
+        margin: 0 0 5px 0;
+        font-size: 1.4rem;
+    }
+    .qr-card p {
+        margin: 0 0 15px 0;
+        color: var(--text-secondary);
+    }
+    .qr-code-wrapper {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+    }
+    .qr-code-item img {
+        width: 130px;
+        height: 130px;
+        border: 1px solid var(--border-color);
+    }
+    .qr-code-item .qr-code-label {
+        font-weight: 700;
+        margin-top: 5px;
+        display: block;
+    }
+
+    /* 印刷時専用のスタイル */
+    @media print {
+        /* ヘッダー、ハンバーガーメニュー、印刷ボタンを非表示に */
+        .header, .hamburger-menu, .print-header {
+            display: none !important;
+        }
+        .main-container {
+            padding: 0;
+        }
+        .qr-card {
+            box-shadow: none;
+            border: 1px solid #ccc;
+        }
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+    <div class="print-header">
+        <p>各出し物の受付に、対応するQRコードを印刷して設置してください。</p>
+        <button onclick="window.print()" class="print-button"><i class="ri-printer-line"></i> このページを印刷する</button>
+    </div>
+
+    <div class="qr-container">
+        {% for attraction in attractions %}
+        <div class="qr-card">
+            <h2>{{ attraction.attraction_name }}</h2>
+            <p>（{{ attraction.group_name }}）</p>
+            <div class="qr-code-wrapper">
+                <div class="qr-code-item">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ base_url }}process/entry/{{ attraction.entry_qr_id }}/" alt="入室QRコード">
+                    <span class="qr-code-label">入室用</span>
+                </div>
+                <div class="qr-code-item">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ base_url }}process/exit/{{ attraction.exit_qr_id }}/" alt="退室QRコード">
+                    <span class="qr-code-label">退室用</span>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+            <p style="text-align: center; color: #888;">
+                {% if request.user.is_superuser %}
+                    表示できる出し物がありません。管理画面から出し物を登録してください。
+                {% else %}
+                    担当の出し物が割り当てられていません。管理者に連絡してください。
+                {% endif %}
+            </p>
+        {% endfor %}
+    </div>
+{% endblock %}

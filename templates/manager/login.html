@@ -1,0 +1,19 @@
+<!-- templates/manager/login.html -->
+{% extends 'manager/base.html' %}
+{% block title %}ログイン{% endblock %}
+{% block content %}
+<style>
+    .form-container { background-color: white; padding: 20px; border-radius: 8px; }
+    .form-container form p { margin-bottom: 15px; }
+    .form-container label { display: block; margin-bottom: 5px; font-weight: bold; }
+    .form-container input { width: 100%; padding: 8px; box-sizing: border-box; }
+</style>
+<div class="form-container">
+    <h2>ログイン</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="button">ログイン</button>
+    </form>
+</div>
+{% endblock %}

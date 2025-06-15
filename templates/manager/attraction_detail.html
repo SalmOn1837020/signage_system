@@ -1,0 +1,327 @@
+<!-- templates/manager/attraction_detail.html -->
+{% extends 'manager/base.html' %}
+
+{% block page_title %}{{ attraction.attraction_name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .main-container {
+        padding: 0;
+    }
+    
+    /* --- ヒーローエリア --- */
+    .hero-area {
+        position: relative; /* ボタンを配置するために必要 */
+        width: 100%;
+        background-color: #000;
+        line-height: 0;
+    }
+    .hero-area video {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    .hero-area .placeholder {
+        position: relative;
+        width: 100%;
+        padding-top: 56.25%; /* 16:9 */
+        background: #333;
+    }
+    .hero-area .placeholder i {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 4rem;
+        color: #666;
+    }
+
+    /* --- コンテンツエリア --- */
+    .content-area {
+        padding: 20px;
+    }
+
+    /* --- 情報エリア --- */
+    .info-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+    }
+    .attraction-title h2 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0 0 4px 0;
+    }
+    .attraction-title p {
+        font-size: 1rem;
+        color: var(--text-secondary);
+        margin: 0;
+    }
+
+    /* --- いいねボタン --- */
+    .like-button-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+    .like-button {
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: 2rem;
+        color: var(--status-disabled);
+        transition: transform 0.2s ease-in-out, color 0.2s ease;
+        pointer-events: none;
+    }
+    .like-button.liked {
+        color: var(--status-danger);
+        animation: like-pop 0.4s ease-in-out;
+    }
+    .like-button.shake {
+        animation: shake 0.5s ease-in-out;
+    }
+    @keyframes like-pop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.4); }
+        100% { transform: scale(1); }
+    }
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+        20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+
+    /* --- 紹介文エリア --- */
+    .description-area {
+        padding: 20px;
+        background-color: var(--surface-color);
+        border-radius: 12px;
+        line-height: 1.8;
+        color: var(--text-primary);
+    }
+
+    /* --- 動画コントロールボタン共通スタイル --- */
+    .video-control-button {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        background-color: rgba(0,0,0,0.5);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+        transition: background-color 0.2s ease;
+    }
+    .video-control-button:hover {
+        background-color: rgba(0,0,0,0.8);
+    }
+
+    /* --- ボタンの個別配置 --- */
+    .back-button {
+        top: 20px;
+        left: 20px;
+        text-decoration: none;
+    }
+    #mute-button {
+        bottom: 20px;
+        right: 20px;
+        background-color: rgba(0,0,0,0.6);
+    }
+    
+    /* --- 通知メッセージ用のスタイル --- */
+    #like-toast {
+        position: fixed;
+        bottom: -100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(0,0,0,0.8);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 25px;
+        font-size: 0.9rem;
+        z-index: 2000;
+        transition: bottom 0.5s ease-in-out;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="hero-area">
+        <a href="{% url 'manager:attraction_list' %}" class="back-button"><i class="ri-arrow-left-line"></i></a>
+        
+        {% if hls_url or attraction.video_file %}
+        <button id="mute-button" class="video-control-button">
+            <i class="ri-volume-mute-line"></i>
+        </button>
+        {% endif %}
+
+        {% if hls_url %}
+            <video id="hls-video" muted autoplay loop playsinline></video>
+        {% elif attraction.video_file %}
+             <video src="{{ attraction.video_file.url }}" muted autoplay loop playsinline></video>
+        {% else %}
+            <div class="placeholder"><i class="ri-camera-off-line"></i></div>
+        {% endif %}
+    </div>
+
+    <div class="content-area">
+        <div class="info-header">
+            <div class="attraction-title">
+                <h2>{{ attraction.attraction_name }}</h2>
+                <p>{{ attraction.group_name }}</p>
+            </div>
+            
+            {% if user.is_authenticated %}
+            <div class="like-button-wrapper" id="like-wrapper">
+                <form action="{% url 'manager:like_attraction' attraction.id %}" method="post" id="like-form">
+                    {% csrf_token %}
+                    <button type="submit" class="like-button {% if is_liked %}liked{% endif %}">
+                        <i class="{% if is_liked %}ri-heart-fill{% else %}ri-heart-line{% endif %}"></i>
+                    </button>
+                </form>
+                <span>{{ attraction.likes_count }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="description-area">
+            <p>{{ attraction.description|linebreaksbr }}</p>
+        </div>
+    </div>
+{% endblock %}
+
+
+{% block extra_script %}
+    {% if hls_url %}
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        var video = document.getElementById('hls-video');
+        var videoSrc = '{{ hls_url }}';
+        if (Hls.isSupported()) {
+            var hls = new Hls();
+            hls.loadSource(videoSrc);
+            hls.attachMedia(video);
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = videoSrc;
+        }
+    </script>
+    {% endif %}
+
+    <script>
+        const likeWrapper = document.getElementById('like-wrapper');
+        if (likeWrapper) {
+            const form = likeWrapper.querySelector('#like-form');
+            const button = form.querySelector('.like-button');
+            const canLike = {{ can_like|yesno:"true,false" }};
+
+            likeWrapper.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (!canLike) {
+                    button.classList.add('shake');
+                    setTimeout(() => { button.classList.remove('shake'); }, 500);
+                    showToast("この出し物はまだ体験していません！");
+                    return;
+                }
+                submitLikeForm();
+            });
+
+            function submitLikeForm() {
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': form.querySelector('input[name="csrfmiddlewaretoken"]').value,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }).then(response => response.json())
+                  .then(data => {
+                      if(data.status === 'ok') {
+                          const icon = button.querySelector('i');
+                          const countSpan = likeWrapper.querySelector('span');
+                          button.classList.toggle('liked', data.is_liked);
+                          icon.className = data.is_liked ? 'ri-heart-fill' : 'ri-heart-line';
+                          countSpan.textContent = data.likes_count;
+                      }
+                  });
+            }
+        }
+
+        function showToast(message) {
+            const existingToast = document.getElementById('like-toast');
+            if (existingToast) { existingToast.remove(); }
+            
+            const toast = document.createElement('div');
+            toast.id = 'like-toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => { toast.style.bottom = '90px'; }, 10);
+            setTimeout(() => {
+                toast.style.bottom = '-100px';
+                setTimeout(() => { toast.remove(); }, 500);
+            }, 3000);
+        }
+
+        const muteButton = document.getElementById('mute-button');
+        const videoElement = document.querySelector('.hero-area video');
+
+        if (muteButton && videoElement) {
+            // HLSインスタンスをグローバルスコープで保持
+            let hlsInstance = null; 
+
+            // HLSの初期化（HLS動画の場合のみ実行）
+            if (document.getElementById('hls-video')) {
+                const hlsScript = document.createElement('script');
+                hlsScript.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+                hlsScript.onload = function() {
+                    const videoSrc = '{{ hls_url }}';
+                    if (Hls.isSupported()) {
+                        hlsInstance = new Hls();
+                        hlsInstance.loadSource(videoSrc);
+                        hlsInstance.attachMedia(videoElement);
+                        hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                            videoElement.play(); // 動画の再生を開始
+                        });
+                    } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                        videoElement.src = videoSrc;
+                    }
+                };
+                document.head.appendChild(hlsScript);
+            }
+
+            // ミュートボタンのクリックイベント
+            muteButton.addEventListener('click', function() {
+                const icon = this.querySelector('i');
+                
+                // 状態を反転
+                const newMutedState = !videoElement.muted;
+                videoElement.muted = newMutedState;
+                
+                // HLSの場合、音声トラックも制御する
+                if (hlsInstance) {
+                    hlsInstance.audioTracks.forEach(track => {
+                        track.enabled = !newMutedState;
+                    });
+                }
+
+                // アイコンを更新
+                icon.className = newMutedState ? 'ri-volume-mute-line' : 'ri-volume-up-line';
+
+                // ミュートを解除した場合、再生が止まっていたら再生する
+                if (!newMutedState && videoElement.paused) {
+                    videoElement.play();
+                }
+            });
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,80 @@
+<!-- templates/manager/gacha_scan.html -->
+{% extends 'manager/base.html' %}
+{% block title %}ガチャチケット確認{% endblock %}
+
+{% block content %}
+<style>
+    .scan-container { text-align: center; }
+    #qr-reader { width: 100%; max-width: 500px; margin: auto; border: 1px solid #ccc; }
+    .result-message { margin-top: 20px; padding: 15px; border-radius: 5px; }
+    .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+</style>
+
+<div class="scan-container">
+    <h2>ガチャチケット読み取り</h2>
+    <p>来場者のQRコードをカメラでスキャンするか、IDを直接入力してください。</p>
+
+    <!-- メッセージ表示エリア -->
+    {% if message %}
+        <div class="result-message success">{{ message|linebreaksbr }}</div>
+    {% endif %}
+    {% if error_message %}
+        <div class="result-message error">{{ error_message|linebreaksbr }}</div>
+    {% endif %}
+
+    <!-- QRコードリーダーの配置場所 -->
+    <div id="qr-reader"></div>
+
+    <hr style="margin: 30px 0;">
+
+    <!-- 手動入力フォーム -->
+    <h3>手動入力</h3>
+    <form method="post">
+        {% csrf_token %}
+        <input type="text" name="ticket_id" placeholder="チケットIDをここに入力" required style="width: 80%; padding: 10px; font-size: 1em;">
+        <button type="submit" class="button" style="margin-top: 10px;">確認する</button>
+    </form>
+</div>
+
+<!-- QRコードスキャン用のライブラリを読み込み -->
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script>
+    function onScanSuccess(decodedText, decodedResult) {
+        // スキャン成功時の処理
+        console.log(`Code matched = ${decodedText}`, decodedResult);
+        
+        // フォームを自動的に作成して送信
+        let form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "{% url 'manager:gacha_scan' %}";
+        
+        let csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = '{{ csrf_token }}';
+        form.appendChild(csrfInput);
+
+        let ticketInput = document.createElement('input');
+        ticketInput.type = 'hidden';
+        ticketInput.name = 'ticket_id';
+        ticketInput.value = decodedText;
+        form.appendChild(ticketInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function onScanFailure(error) {
+        // スキャン失敗時は何もしない（コンソールにログは残す）
+        // console.warn(`Code scan error = ${error}`);
+    }
+
+    // QRコードリーダーを初期化
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+        "qr-reader", 
+        { fps: 10, qrbox: {width: 250, height: 250} },
+        /* verbose= */ false);
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+</script>
+{% endblock %}

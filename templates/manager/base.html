@@ -1,0 +1,119 @@
+<!-- templates/manager/base.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}文化祭NAVI{% endblock %} - 文化祭コンシェルジュ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
+    <style>
+        :root {
+            --bg-color: #F9F9F9; --surface-color: #FFFFFF; --text-primary: #333333; --text-secondary: #888888;
+            --accent-color: #007AFF; --border-color: #EAEAEA; --status-success: #2ECC40; --status-warning: #FFDC00;
+            --status-danger: #FF4136; --status-special: #B10DC9; --status-disabled: #DDDDDD;
+            --font-family: 'Noto Sans JP', sans-serif; --header-height: 60px;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            background-color: var(--bg-color); color: var(--text-primary); font-family: var(--font-family);
+            margin: 0; padding-top: var(--header-height);
+        }
+        .header {
+            background-color: var(--surface-color); border-bottom: 1px solid var(--border-color); height: var(--header-height);
+            display: flex; align-items: center; justify-content: space-between; /* space-betweenに変更 */
+            padding: 0 20px; position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
+        }
+        .header .logo { font-size: 1.2rem; font-weight: 700; text-decoration: none; color: var(--text-primary); }
+        .main-container { padding: 20px; }
+        
+        /* --- ハンバーガーメニューのスタイル --- */
+        .hamburger-menu {
+            display: flex; flex-direction: column; justify-content: space-around;
+            width: 2rem; height: 2rem; background: transparent; border: none; cursor: pointer; padding: 0; z-index: 1010;
+        }
+        .hamburger-menu div {
+            width: 2rem; height: 0.25rem; background: var(--text-primary); border-radius: 10px;
+            transition: all 0.3s linear; position: relative; transform-origin: 1px;
+        }
+        .nav-links {
+            display: flex; flex-direction: column; justify-content: center; background: rgba(51, 51, 51, 0.95);
+            backdrop-filter: blur(5px); height: 100vh; text-align: left; padding: 2rem;
+            position: fixed; top: 0; right: 0; transition: transform 0.3s ease-in-out;
+            transform: translateX(100%); width: 80%; max-width: 300px; z-index: 1005;
+        }
+        .nav-links.open { transform: translateX(0); }
+        .nav-links a {
+            font-size: 1.5rem; padding: 1.5rem 0; font-weight: 700; color: white;
+            text-decoration: none; display: flex; align-items: center; gap: 15px;
+        }
+        .nav-links a:hover { color: var(--accent-color); }
+        .nav-links i { font-size: 1.8rem; }
+        .nav-links .separator { border-bottom: 1px solid #555; margin: 1rem 0; }
+        
+        .messages { list-style: none; padding: 0; margin-bottom: 15px; }
+        .alert { padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        .alert-success { color: #0f5132; background-color: #d1e7dd; border-color: #badbcc; }
+        .alert-error { color: #842029; background-color: #f8d7da; border-color: #f5c2c7; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header class="header">
+        <a href="{% url 'manager:attraction_list' %}" class="logo">文化祭NAVI</a>
+        <button class="hamburger-menu"> <div></div><div></div><div></div> </button>
+    </header>
+
+    <nav class="nav-links">
+        {# --- ログイン状態に応じたメニュー --- #}
+        {% if user.is_authenticated %}
+            {# 全員共通 (ログイン済み) #}
+            <a href="{% url 'manager:attraction_list' %}"><i class="ri-home-4-line"></i>ホーム</a>
+            <a href="#"><i class="ri-map-2-line"></i>マップ</a>
+
+            {# 役割ごとの特別メニュー #}
+            {% if user.is_superuser %}
+                <a href="{% url 'admin:index' %}"><i class="ri-settings-3-line"></i>管理者ページ</a>
+            {% elif user.role == 'visitor' %}
+                <a href="{% url 'manager:my_tickets' %}"><i class="ri-coupon-3-line"></i>チケット</a>
+            {% elif user.role == 'gacha' %}
+                <a href="{% url 'manager:gacha_scan' %}"><i class="ri-qr-scan-2-line"></i>ガチャ読み取り</a>
+                <a href="{% url 'manager:my_tickets' %}"><i class="ri-coupon-3-line"></i>チケット</a>
+            {% elif user.role == 'staff' %}
+                <a href="{% url 'manager:qr_code_list' %}"><i class="ri-qr-code-line"></i>自分の出し物確認</a>
+            {% elif user.role == 'signage' %}
+                <a href="{% url 'manager:signage' %}"><i class="ri-tv-2-line"></i>サイネージ</a>
+            {% endif %}
+
+            <div class="separator"></div>
+            <a href="{% url 'manager:logout' %}"><i class="ri-logout-box-r-line"></i>ログアウト</a>
+        {% else %}
+            {# 未ログインユーザー用 #}
+            <a href="{% url 'manager:attraction_list' %}"><i class="ri-home-4-line"></i>ホーム</a>
+            <a href="#"><i class="ri-map-2-line"></i>マップ</a>
+            <a href="{% url 'manager:signup' %}"><i class="ri-user-add-line"></i>新規登録</a>
+            <a href="{% url 'manager:login' %}"><i class="ri-login-box-line"></i>ログイン</a>
+        {% endif %}
+    </nav>
+
+    <main class="main-container">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+    
+    <script>
+        const hamburger = document.querySelector('.hamburger-menu');
+        const navLinks = document.querySelector('.nav-links');
+        hamburger.addEventListener('click', () => { navLinks.classList.toggle('open'); });
+    </script>
+    {% block extra_script %}{% endblock %}
+</body>
+</html>

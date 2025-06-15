@@ -1,0 +1,213 @@
+<!-- templates/manager/attraction_list.html -->
+{% extends 'manager/base.html' %}
+
+{% block page_title %}混雑状況{% endblock %}
+
+{% block extra_head %}
+<style>
+    .filter-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 10px;
+    }
+    .filter-bar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .filter-button {
+        background-color: var(--surface-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: var(--font-family);
+        font-size: 0.9rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-shrink: 0;
+    
+        /* ▼▼▼ この1行を追加 ▼▼▼ */
+        text-decoration: none; /* 下線を削除 */
+    }
+    .filter-button.active {
+        background-color: var(--accent-color);
+        color: white;
+        border-color: var(--accent-color);
+    }
+
+    .attraction-list {
+        display: grid;
+        gap: 15px;
+    }
+
+    /* --- 新しいカードデザイン --- */
+    .attraction-card {
+        background-color: var(--surface-color);
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        padding: 16px;
+        text-decoration: none;
+        color: var(--text-primary);
+        transition: transform 0.2s ease-in-out;
+    }
+    .attraction-card:active {
+        transform: scale(0.98);
+    }
+
+    .status-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+    }
+    .status-display::before {
+        content: '';
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    /* --- ステータスカラーのマッピング --- */
+    .status-available::before { background-color: var(--status-success); }
+    .status-normal::before { background-color: var(--status-warning); }
+    .status-crowded::before { background-color: var(--status-danger); }
+    .status-showing::before,
+    .status-soon::before { background-color: var(--status-special); }
+    .status-closed::before,
+    .status-preparing::before { background-color: var(--status-disabled); }
+
+    .attraction-info p {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin: 0;
+        display: flex; /* pタグをflexにして、中の要素を横並びに */
+        align-items: center;
+        gap: 10px;
+    }
+
+    .attraction-info {
+        flex-grow: 1;
+    }
+    .attraction-info h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0 0 4px 0;
+    }
+    .attraction-info p {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin: 0;
+    }
+    .attraction-card i {
+        font-size: 1.5rem;
+        color: var(--border-color);
+    }
+    
+    /* --- ステータスカラーのマッピング --- */
+    .status-indicator.status-available { background-color: var(--status-success); }
+    .status-indicator.status-normal { background-color: var(--status-warning); }
+    .status-indicator.status-crowded { background-color: var(--status-danger); }
+    .status-indicator.status-showing,
+    .status-indicator.status-soon { background-color: var(--status-special); }
+    .status-indicator.status-closed,
+    .status-indicator.status-preparing { background-color: var(--status-disabled); }
+
+    /* --- 特殊状態のラベル --- */
+    .status-label {
+        margin-left: auto;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: white;
+        flex-shrink: 0;
+    }
+    .label-showing, .label-soon { background-color: var(--status-special); }
+    .label-closed { background-color: var(--text-secondary); }
+
+    .visited-mark {
+        background-color: var(--accent-color);
+        color: white;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-left: 10px;
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <!-- フィルタ＆ソートバー -->
+    <div class="filter-bar">
+        <!-- 「すべて」ボタン (これは固定で表示) -->
+        <a href="{% url 'manager:attraction_list' %}" class="filter-button {% if not selected_tag_id %}active{% endif %}">
+            <i class="ri-filter-3-line"></i>すべて
+        </a>
+
+        <!-- ★★★ データベースから取得した本物のタグをここで表示 ★★★ -->
+        {% for tag in tags %}
+            <a href="?tag={{ tag.id }}" class="filter-button {% if selected_tag_id == tag.id %}active{% endif %}">
+                {% if tag.icon %}<i class="{{ tag.icon }}"></i>{% endif %}{{ tag.name }}
+            </a>
+        {% endfor %}
+    </div>
+
+    <!-- 出し物一覧 -->
+    <div class="attraction-list">
+        {% for attraction in attractions %}
+            <a href="{% url 'manager:attraction_detail' attraction.id %}" class="attraction-card">
+                <div class="attraction-info">
+                    <h3>
+                        {{ attraction.attraction_name }}
+                        {# ▼▼▼ 体験済みマークを表示するロジック ▼▼▼ #}
+                        {% if attraction.id in visited_attraction_ids %}
+                            <span class="visited-mark">体験済み</span>
+                        {% endif %}
+                    </h3>
+                    <p>
+                        <span class="status-display status-{{ attraction.status }}">
+                            {% if attraction.is_theater and attraction.status != 'closed' %}
+                                {{ attraction.get_status_display }}
+                            {% elif attraction.status == 'closed' %}
+                                閉店
+                            {% else %}
+                                {{ attraction.get_status_display }}
+                            {% endif %}
+                        </span>
+                        <span>{{ attraction.group_name }}</span>
+                    </p>
+                </div>
+                <!-- 演劇や閉店などの特殊状態ラベル -->
+                {% if attraction.status == 'showing' %}
+                    <span class="status-label label-showing">上演中</span>
+                {% elif attraction.status == 'soon' %}
+                    <span class="status-label label-soon">開演間近</span>
+                {% elif attraction.status == 'closed' %}
+                    <span class="status-label label-closed">終了</span>
+                {% endif %}
+
+                <i class="ri-arrow-right-s-line"></i>
+            </a>
+        {% empty %}
+            {# タグで絞り込んだ結果、表示するものがない場合のメッセージ #}
+            <p style="text-align: center; color: #888; margin-top: 30px;">
+                {% if selected_tag_id %}
+                    この条件に合う出し物はありません。
+                {% else %}
+                    現在公開中の出し物はありません。
+                {% endif %}
+            </p>
+        {% endfor %}
+    </div>
+{% endblock %}

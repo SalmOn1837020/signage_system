@@ -1,0 +1,19 @@
+<!-- templates/manager/signup.html -->
+{% extends 'manager/base.html' %}
+{% block title %}新規登録{% endblock %}
+{% block content %}
+<style>
+    .form-container { background-color: white; padding: 20px; border-radius: 8px; }
+    .form-container form p { margin-bottom: 15px; }
+    .form-container label { display: block; margin-bottom: 5px; font-weight: bold; }
+    .form-container input { width: 100%; padding: 8px; box-sizing: border-box; }
+</style>
+<div class="form-container">
+    <h2>新規登録</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="button">登録する</button>
+    </form>
+</div>
+{% endblock %}

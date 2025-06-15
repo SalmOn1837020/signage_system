@@ -1,0 +1,261 @@
+<!-- templates/manager/signage.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>文化祭混雑状況</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* === デザインシステムの定義 (サイネージ用) === */
+        :root {
+            /* === デザインシステムの定義 (サイネージ用・白背景) === */
+            --bg-color: #FFFFFF; /* 背景を白に変更 */
+            --surface-color: #F9F9F9; /* カード背景をオフホワイトに */
+            --text-primary: #333333; /* テキストをダークグレーに */
+            --text-secondary: #888888;
+            --border-color: #EAEAEA;
+            --font-family: 'Noto Sans JP', sans-serif;
+
+            --status-success: #2ECC40;
+            --status-warning: #FFDC00;
+            --status-danger: #FF4136;
+            --status-special: #B10DC9;
+            --status-disabled: #AAAAAA;
+            --accent-color: #007AFF;
+        }
+
+        /* === 基本スタイル === */
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            overflow: hidden;
+            cursor: none;
+        }
+        
+        /* === グリッドレイアウト === */
+        #grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 1920px;
+            height: 1080px;
+            padding: 40px;
+            box-sizing: border-box;
+            gap: 40px;
+            opacity: 1;
+            transition: opacity 0.5s ease-in-out;
+        }
+        #grid-container.fade-out {
+            opacity: 0;
+        }
+
+        /* === カードセル === */
+        .card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color); /* 境界線を薄く追加 */
+            border-radius: 20px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            text-align: center;
+        }
+
+        /* --- カード内の要素 --- */
+        .card-location { /* 場所 */
+            font-size: 2.5rem;
+            font-weight: 500;
+            text-align: right;
+            color: var(--text-secondary);
+        }
+        .card-name { /* 出し物名 */
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-name h2 {
+            font-size: 4.8rem;
+            font-weight: 900;
+            margin: 0;
+            line-height: 1.25;
+            color: var(--text-primary);
+        }
+        .card-status { /* 混雑状況 */
+            font-size: 6rem;
+            font-weight: 900;
+            padding: 10px 0;
+            border-radius: 15px;
+            color: var(--text-primary); /* デフォルトの文字色 */
+        }
+
+        /* --- ステータスカラーのマッピング (白背景用) --- */
+        .status-available { background-color: var(--status-success); color: white; }
+        .status-normal { background-color: var(--status-warning); color: #333; }
+        .status-crowded { background-color: var(--status-danger); color: white; }
+        .status-showing,
+        .status-soon { background-color: var(--status-special); color: white; }
+        .status-closed,
+        .status-preparing { background-color: var(--status-disabled); color: #555; }
+
+        /* --- フッター情報 (ページ番号/プログレスバー) --- */
+        .footer-info {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            display: flex;
+            align-items: center;
+        }
+        #page-number {
+            position: fixed;
+            bottom: 30px;
+            right: 40px;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--accent-color);
+            transition: width 1s linear;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="grid-container"></div>
+    <div id="page-number"></div>
+    <div class="footer-info">
+        <div id="progress-bar"></div>
+    </div>
+
+    <script>
+        const container = document.getElementById('grid-container');
+        const pageNumberDisplay = document.getElementById('page-number');
+        const progressBar = document.getElementById('progress-bar');
+
+        const ITEMS_PER_PAGE = 9;
+        const PAGE_SWITCH_INTERVAL_MS = 120000; // 2分
+        const DATA_FETCH_INTERVAL_MS = 10000; // 10秒
+        
+        let allAttractions = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let progressInterval;
+
+        function renderPage(pageNumber) {
+            container.innerHTML = '';
+            const start = (pageNumber - 1) * ITEMS_PER_PAGE;
+            const end = start + ITEMS_PER_PAGE;
+            const attractionsToShow = allAttractions.slice(start, end);
+
+            for (const attraction of attractionsToShow) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                let statusText = attraction.status_display;
+                // テキストを仕様に合わせて調整
+                if (attraction.is_theater) {
+                    if (attraction.status === 'closed') statusText = '終了';
+                    else if (attraction.status === 'soon') statusText = '開演間近';
+                    else if (attraction.status === 'showing') statusText = '上演中';
+                    else statusText = '準備中';
+                } else {
+                    if (attraction.status === 'closed') statusText = '閉店';
+                }
+                
+                card.innerHTML = `
+                    <div class="card-location">${attraction.group}</div>
+                    <div class="card-name"><h2>${attraction.name}</h2></div>
+                    <div class="card-status status-${attraction.status}">${statusText}</div>
+                `;
+                container.appendChild(card);
+            }
+            // ページ番号を更新
+            if (totalPages > 1) {
+                pageNumberDisplay.textContent = `${currentPage}/${totalPages}`;
+            }
+        }
+
+        async function fetchData() {
+            try {
+                const response = await fetch("{% url 'manager:attraction_api' %}");
+                const data = await response.json();
+                allAttractions = data.attractions;
+                const newTotalPages = Math.ceil(allAttractions.length / ITEMS_PER_PAGE) || 1;
+
+                if (totalPages !== newTotalPages) {
+                    totalPages = newTotalPages;
+                    // ページ数が変わった場合はタイマーをリセット
+                    if (totalPages > 1) setupPageSwitchTimer();
+                }
+
+                if (currentPage > totalPages) {
+                    currentPage = 1;
+                }
+                renderPage(currentPage);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        function switchPage() {
+            container.classList.add('fade-out');
+            
+            setTimeout(() => {
+                currentPage++;
+                if (currentPage > totalPages) {
+                    currentPage = 1;
+                }
+                renderPage(currentPage);
+                container.classList.remove('fade-out');
+            }, 500); // 0.5秒後にコンテンツを入れ替えてフェードイン
+        }
+        
+        function setupPageSwitchTimer() {
+            clearInterval(progressInterval); // 既存のタイマーをクリア
+            if (totalPages <= 1) {
+                progressBar.style.width = '0%';
+                pageNumberDisplay.textContent = '';
+                return;
+            }
+
+            let elapsedTime = 0;
+            switchPage(); // タイマー設定時にまず一度切り替える
+
+            progressInterval = setInterval(() => {
+                elapsedTime += 1000; // 1秒ずつ増加
+                const progress = (elapsedTime / PAGE_SWITCH_INTERVAL_MS) * 100;
+                progressBar.style.width = `${progress}%`;
+
+                if (elapsedTime >= PAGE_SWITCH_INTERVAL_MS) {
+                    elapsedTime = 0;
+                    switchPage();
+                }
+            }, 1000);
+        }
+
+        // 初期実行
+        fetchData().then(() => {
+            if (totalPages > 1) {
+                setupPageSwitchTimer();
+            }
+        });
+
+        // 定期的なデータ更新
+        setInterval(fetchData, DATA_FETCH_INTERVAL_MS);
+
+    </script>
+</body>
+</html>

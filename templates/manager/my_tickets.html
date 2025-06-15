@@ -1,0 +1,49 @@
+<!-- templates/manager/my_tickets.html -->
+{% extends 'manager/base.html' %}
+
+{% block title %}マイルーム - チケット一覧{% endblock %}
+
+{% block content %}
+<style>
+    .ticket-card { background-color: white; border-radius: 8px; margin-bottom: 20px; padding: 20px; border: 1px solid #ddd; }
+    .ticket-card.used { background-color: #f1f2f6; opacity: 0.6; }
+    .ticket-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .ticket-status { font-weight: bold; padding: 5px 10px; border-radius: 5px; }
+    .status-valid { background-color: #2ed573; color: white; }
+    .status-used { background-color: #747d8c; color: white; }
+    .ticket-qr { text-align: center; }
+    .ticket-qr img { max-width: 200px; width: 100%; height: auto; margin-top: 10px; }
+</style>
+
+<h2>あなたのガチャチケット</h2>
+<p>ガチャコーナーでこの画面のQRコードを提示してください。</p>
+
+{% for ticket in tickets %}
+<div class="ticket-card {% if ticket.is_used %}used{% endif %}">
+    <div class="ticket-header">
+        <div>
+            <strong>発行日時</strong><br>
+            {{ ticket.issued_at|date:"Y年m月d日 H:i" }}
+        </div>
+        {% if ticket.is_used %}
+            <div class="ticket-status status-used">使用済み</div>
+        {% else %}
+            <div class="ticket-status status-valid">有効</div>
+        {% endif %}
+    </div>
+
+    {% if not ticket.is_used %}
+    <div class="ticket-qr">
+        <p>↓ このQRコードを提示してください ↓</p>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ ticket.id }}" alt="ガチャチケットQRコード">
+        <p><small>(ID: {{ ticket.id }})</small></p>
+    </div>
+    {% else %}
+    <p style="text-align: center;">このチケットは {{ ticket.used_at|date:"Y/m/d H:i" }} に使用されました。</p>
+    {% endif %}
+</div>
+{% empty %}
+<p>まだ利用可能なチケットはありません。5つの出し物を回るとチケットがもらえます！</p>
+{% endfor %}
+
+{% endblock %}

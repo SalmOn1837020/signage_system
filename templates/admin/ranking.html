@@ -1,0 +1,70 @@
+<!-- templates/admin/ranking.html -->
+{% extends "admin/base_site.html" %}
+{% block title %}ランキング{% endblock %}
+
+{% block content %}
+<style>
+    .ranking-container { display: flex; gap: 30px; }
+    .ranking-box { flex: 1; }
+    .ranking-table { width: 100%; border-collapse: collapse; }
+    .ranking-table th, .ranking-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .ranking-table th { background-color: #f2f2f2; }
+    .ranking-table tr:nth-child(even) { background-color: #f9f9f9; }
+</style>
+
+<h1>各種ランキング</h1>
+
+<div class="ranking-container">
+    <div class="ranking-box">
+        <h2>来場者数ランキング</h2>
+        <table class="ranking-table">
+            <thead>
+                <tr>
+                    <th>順位</th>
+                    <th>出し物名</th>
+                    <th>団体名</th>
+                    <th>累計来場者数</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for attraction in visitor_ranking %}
+                <tr>
+                    <td>{{ forloop.counter }}位</td>
+                    <td>{{ attraction.attraction_name }}</td>
+                    <td>{{ attraction.group_name }}</td>
+                    <td>{{ attraction.total_visitors }} 人</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4">データがありません。</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="ranking-box">
+        <h2>高評価（いいね）ランキング</h2>
+        <table class="ranking-table">
+            <thead>
+                <tr>
+                    <th>順位</th>
+                    <th>出し物名</th>
+                    <th>団体名</th>
+                    <th>いいね数</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for attraction in like_ranking %}
+                <tr>
+                    <td>{{ forloop.counter }}位</td>
+                    <td>{{ attraction.attraction_name }}</td>
+                    <td>{{ attraction.group_name }}</td>
+                    <td>{{ attraction.likes_count }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4">データがありません。</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
