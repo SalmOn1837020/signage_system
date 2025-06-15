@@ -17,6 +17,7 @@ from django.db.models import F
 
 from .models import Attraction, SystemLog, UserActivity, GachaTicket, Like, User, Tag
 from .forms import CustomUserCreationForm
+from .utils import get_theatrical_status
 
 # --- 定数 ---
 ABNORMAL_EXIT_LOG_DETAIL_TEMPLATE = "ユーザー'{username}'が'{current_attraction_name}'に入室したため、'{previous_attraction_name}'から強制退室させました。"
@@ -75,10 +76,18 @@ def process_entry(request, qr_id):
     attraction = get_object_or_404(Attraction, entry_qr_id=qr_id)
     user = request.user
 
-    # 閉店・上演中の場合は処理を中断
-    if attraction.status in ['closed', 'showing']:
-        messages.error(request, f"「{attraction.attraction_name}」は現在入室できません。")
-        return redirect('manager:attraction_list')
+    # Entry condition check
+    if attraction.is_theater:
+        theatrical_info = get_theatrical_status(attraction, timezone.now())
+        # Define which theatrical statuses should prevent entry
+        non_enterable_theater_keys = ['showing', 'ended_today', 'all_shows_ended', 'no_show_info']
+        if theatrical_info and theatrical_info.get('status_key') in non_enterable_theater_keys:
+            messages.error(request, f"「{attraction.attraction_name}」は現在入室できません ({theatrical_info.get('display_text', '')})。")
+            return redirect('manager:attraction_list')
+    else: # For non-theater attractions
+        if attraction.status == 'closed': # Only 'closed' status blocks entry for non-theaters
+             messages.error(request, f"「{attraction.attraction_name}」は現在入室できません (閉店)。")
+             return redirect('manager:attraction_list')
 
     # 仕様: 別の出し物に入室中の場合の処理
     last_entry_attraction_id = request.session.get('last_entry_attraction_id')
@@ -215,6 +224,13 @@ def attraction_list(request):
 
     # データベースから全てのタグを取得する
     tags = Tag.objects.all()
+
+    current_time = timezone.now()
+    for attr in attractions: # Assuming attractions is a queryset
+        if attr.is_theater:
+            attr.theatrical_status_info = get_theatrical_status(attr, current_time)
+        else:
+            attr.theatrical_status_info = None # Ensure attribute exists for all items
     
     # context辞書に、attractionsと"tags"の両方を入れる
     context = {
@@ -243,11 +259,16 @@ def attraction_detail(request, attraction_id):
         is_liked = Like.objects.filter(user=request.user, attraction=attraction).exists()
         can_like = UserActivity.objects.filter(user=request.user, attraction=attraction, exit_time__isnull=False).exists()
 
+    theatrical_status_info = None
+    if attraction.is_theater:
+        theatrical_status_info = get_theatrical_status(attraction, timezone.now())
+
     context = {
         'attraction': attraction,
         'is_liked': is_liked,
         'can_like': can_like,
         'hls_url': hls_url, # HLS URLをテンプレートに渡します。
+        'theatrical_status_info': theatrical_status_info,
     }
     return render(request, 'manager/attraction_detail.html', context)
 
@@ -399,13 +420,26 @@ def signage_view(request):
 def attraction_api(request):
     attractions_list = Attraction.objects.all().order_by('attraction_name')
     data = []
+    current_time_for_api = timezone.now() # Get time once for consistency in loop
     for attraction in attractions_list:
-        data.append({
+        item_data = {
             'id': attraction.id,
             'name': attraction.attraction_name,
             'group': attraction.group_name,
-            'status': attraction.status,
             'is_theater': attraction.is_theater,
-            'status_display': attraction.get_status_display(),
-        })
+        }
+        if attraction.is_theater:
+            theatrical_info = get_theatrical_status(attraction, current_time_for_api)
+            if theatrical_info:
+                item_data['status'] = theatrical_info.get('status_key', 'unknown')
+                item_data['status_display'] = theatrical_info.get('display_text', '状態不明')
+                if 'minutes_to_show' in theatrical_info:
+                    item_data['minutes_to_show'] = theatrical_info['minutes_to_show']
+            else: # Fallback, though get_theatrical_status should always return a dict for theaters
+                item_data['status'] = attraction.status
+                item_data['status_display'] = attraction.get_status_display()
+        else:
+            item_data['status'] = attraction.status
+            item_data['status_display'] = attraction.get_status_display()
+        data.append(item_data)
     return JsonResponse({'attractions': data})

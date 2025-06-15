@@ -195,6 +195,20 @@
             {% endif %}
         </div>
 
+        {% if attraction.is_theater and theatrical_status_info %}
+            <div class="theatrical-status-area" style="margin-bottom: 16px; padding: 10px; background-color: var(--surface-color); border-radius: 8px; text-align: center;">
+                <p style="font-size: 1.1rem; font-weight: bold; margin: 0; color: var(--accent-color);" class="status-{{ theatrical_status_info.status_key|default:'unknown' }}">
+                    {{ theatrical_status_info.display_text|default:'状態不明' }}
+                </p>
+            </div>
+        {% elif not attraction.is_theater %} {# Optionally display non-theater status too #}
+            <div class="status-area" style="margin-bottom: 16px; padding: 10px; background-color: var(--surface-color); border-radius: 8px; text-align: center;">
+                <p style="font-size: 1.1rem; font-weight: bold; margin: 0;" class="status-{{ attraction.status }}">
+                    現在の状況: {{ attraction.get_status_display }}
+                </p>
+            </div>
+        {% endif %}
+
         <div class="description-area">
             <p>{{ attraction.description|linebreaksbr }}</p>
         </div>
