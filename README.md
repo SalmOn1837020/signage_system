@@ -26,7 +26,8 @@
 *   **動画処理**: FFmpeg (別途インストールが必要)
 *   **Pythonライブラリ**:
     *   `django`: Webフレームワーク本体
-    *   `qrcode`, `pillow`: QRコード生成 (現在は外部APIを利用)
+    *   `Pillow`: (画像処理関連の潜在的な依存関係)
+    *   QRコード表示: 外部API (`https://api.qrserver.com/`) を利用して表示。プロジェクト内の `qrcode` ライブラリは現在QRコード生成目的では使用していません。
     *   `ffmpeg-python`: 動画のHLS変換
     *   (その他、Django関連の標準ライブラリ)
 
@@ -46,7 +47,7 @@ bunkasai_prj/
 │   └── migrations/     # DB構造の変更履歴
 ├── media/              # (自動生成) ユーザーがアップロードしたファイル (動画など)
 │   └── videos/
-├── static/             # (手動作成) CSS, JS, 画像ファイルなど (今回は未使用)
+├── static/             # 主にPWA用のアイコンファイル (static/images/) を格納。CSS/JSは多くがテンプレート内記述またはCDN利用。
 ├── templates/          # HTMLテンプレート
 │   ├── admin/
 │   │   ├── base_site.html  # 管理サイトのヘッダーカスタマイズ

@@ -119,6 +119,9 @@ def process_entry(request, qr_id):
     # ガチャ判定のため、異常処理でないことをマーク
     request.session['is_normal_entry'] = True 
 
+    # ユーザー行動履歴を作成（入室時間を記録）
+    UserActivity.objects.create(user=user, attraction=attraction)
+
     messages.success(request, f"「{attraction.attraction_name}」に入室しました。")
     return redirect('manager:attraction_list')
 
@@ -144,27 +147,47 @@ def process_exit(request, qr_id):
         details=f"ユーザー'{user.username}'が'{attraction.attraction_name}'から退室しました。"
     )
 
-    if request.session.get('is_normal_entry', False):
-        activity, created = UserActivity.objects.get_or_create(user=user, attraction=attraction)
-        
-        if created:
+    # 最新の未退室の行動履歴を探す
+    activity = UserActivity.objects.filter(
+        user=user,
+        attraction=attraction,
+        exit_time__isnull=True
+    ).order_by('-entry_time').first()
+
+    if not activity:
+        messages.error(request, "この出し物の有効な入室記録が見つかりません。")
+        # Clear session variables that might lead to incorrect state
+        request.session['last_entry_attraction_id'] = None
+        request.session['is_normal_entry'] = False
+        return redirect('manager:attraction_list')
+
+    # 退室時間を記録し保存（duration_secondsはモデルのsave()で計算）
+    activity.exit_time = timezone.now()
+    activity.save()
+
+    if request.session.get('is_normal_entry', False): # 'is_normal_entry'は入室時に設定される
+        SystemLog.objects.create(
+            user=user,
+            action="アトラクション巡回完了",
+            details=f"ユーザー'{user.username}'が'{attraction.attraction_name}'の巡回を完了しました。"
+        )
+            
+        # チケット発行ロジック (ユニークな体験済み出し物数をカウント)
+        completed_attraction_count = UserActivity.objects.filter(
+            user=user,
+            exit_time__isnull=False
+        ).values('attraction').distinct().count()
+            
+        if completed_attraction_count > 0 and completed_attraction_count % 5 == 0:
+            # TODO: Consider more robust logic to prevent re-issuing tickets for the same milestone if already issued.
+            # For now, this matches the original spirit if completed_attraction_count is a new multiple of 5.
+            new_ticket = GachaTicket.objects.create(user=user)
             SystemLog.objects.create(
-                user=user, 
-                action="アトラクション巡回", 
-                details=f"ユーザー'{user.username}'が'{attraction.attraction_name}'を正常に巡回しました。"
+                user=user,
+                action="ガチャチケット獲得",
+                details=f"ユーザー'{user.username}'が{completed_attraction_count}個のユニークな出し物を巡り、チケットを獲得しました。(Ticket ID: {new_ticket.id})"
             )
-            
-            # チケット発行ロジック
-            completed_count = UserActivity.objects.filter(user=user).count()
-            
-            if completed_count > 0 and completed_count % 5 == 0:
-                new_ticket = GachaTicket.objects.create(user=user)
-                SystemLog.objects.create(
-                    user=user,
-                    action="ガチャチケット獲得",
-                    details=f"ユーザー'{user.username}'が{completed_count}個の出し物を巡り、チケットを獲得しました。(Ticket ID: {new_ticket.id})"
-                )
-                messages.success(request, '🎉 ガチャチケットを1枚獲得しました！「マイチケット」から確認できます。')
+            messages.success(request, '🎉 ガチャチケットを1枚獲得しました！「マイチケット」から確認できます。')
 
     request.session['last_entry_attraction_id'] = None
     request.session['is_normal_entry'] = False

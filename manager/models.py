@@ -169,9 +169,15 @@ class UserActivity(models.Model):
     entry_time = models.DateTimeField(auto_now_add=True, verbose_name="入室時間")
     exit_time = models.DateTimeField(null=True, blank=True, verbose_name="退室時間")
     duration_seconds = models.PositiveIntegerField(null=True, blank=True, verbose_name="滞在時間(秒)")
+
+    def save(self, *args, **kwargs):
+        if self.exit_time and self.entry_time:
+            # Ensure duration_seconds is positive, though entry_time should always be before exit_time
+            duration = self.exit_time - self.entry_time
+            self.duration_seconds = max(0, duration.total_seconds())
+        super().save(*args, **kwargs)
     
     class Meta:
-        unique_together = ('user', 'attraction')
         verbose_name = "ユーザー行動履歴"
         verbose_name_plural = "ユーザー行動履歴一覧"
 
