@@ -5,7 +5,6 @@ from django.http import HttpResponse, Http404, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.contrib.auth import login, logout, authenticate
-# from django.contrib.auth.forms import AuthenticationForm
 from .forms import CustomUserCreationForm, CustomAuthenticationForm
 from django.views.decorators.http import require_POST
 from django.utils import timezone
@@ -18,6 +17,9 @@ from django.db.models import F
 
 from .models import Attraction, SystemLog, UserActivity, GachaTicket, Like, User, Tag
 from .forms import CustomUserCreationForm
+
+# --- 定数 ---
+ABNORMAL_EXIT_LOG_DETAIL_TEMPLATE = "ユーザー'{username}'が'{current_attraction_name}'に入室したため、'{previous_attraction_name}'から強制退室させました。"
 
 # --- 状態更新ロジック ---
 def update_attraction_status(attraction):
@@ -91,7 +93,11 @@ def process_entry(request, qr_id):
                 SystemLog.objects.create(
                     user=user, 
                     action="異常退室処理", 
-                    details=f"ユーザー'{user.username}'が'{attraction.attraction_name}'に入室したため、'{last_attraction.attraction_name}'から強制退室させました。"
+                    details=ABNORMAL_EXIT_LOG_DETAIL_TEMPLATE.format(
+                        username=user.username,
+                        current_attraction_name=attraction.attraction_name,
+                        previous_attraction_name=last_attraction.attraction_name
+                    )
                 )
         except Attraction.DoesNotExist:
             pass # 既に削除されたアトラクションの場合は何もしない
@@ -184,14 +190,13 @@ def attraction_list(request):
     if selected_tag_id and selected_tag_id.isdigit():
         attractions = attractions.filter(tags__id=selected_tag_id)
 
-    # ★★★ この部分が最も重要です ★★★
     # データベースから全てのタグを取得する
     tags = Tag.objects.all()
     
     # context辞書に、attractionsと"tags"の両方を入れる
     context = {
         'attractions': attractions,
-        'tags': tags, # ← この行がないと、テンプレートはタグ情報を受け取れません
+        'tags': tags, # テンプレートでタグ情報を使用するため、コンテキストに含めます。
         'selected_tag_id': int(selected_tag_id) if selected_tag_id and selected_tag_id.isdigit() else None,
         'visited_attraction_ids': visited_attraction_ids,
     }
@@ -203,9 +208,9 @@ def attraction_detail(request, attraction_id):
     
     is_liked = False
     can_like = False
-    hls_url = None # ★変数を初期化
+    hls_url = None # HLS動画のURL。存在しない場合はNoneのまま。
 
-    # ★ hls_playlistが設定されている場合、完全なURLを生成
+    # HLSプレイリストパスが設定されていれば、完全なURLを構築します。
     if attraction.hls_playlist:
         # os.path.joinを使い、OSに依存しない安全なパス結合を行う
         # MEDIA_URLと結合し、バックスラッシュをスラッシュに置換
@@ -213,14 +218,13 @@ def attraction_detail(request, attraction_id):
 
     if request.user.is_authenticated:
         is_liked = Like.objects.filter(user=request.user, attraction=attraction).exists()
-        # ↓↓↓ UserActivityのモデル定義に合わせて修正 ↓↓↓
         can_like = UserActivity.objects.filter(user=request.user, attraction=attraction, exit_time__isnull=False).exists()
 
     context = {
         'attraction': attraction,
         'is_liked': is_liked,
         'can_like': can_like,
-        'hls_url': hls_url, # ★生成したURLをテンプレートに渡す
+        'hls_url': hls_url, # HLS URLをテンプレートに渡します。
     }
     return render(request, 'manager/attraction_detail.html', context)
 
@@ -234,10 +238,10 @@ def like_attraction(request, attraction_id):
     # Ajaxリクエストかどうかを判定
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-    if not UserActivity.objects.filter(user=user, attraction=attraction).exists():
+    if not UserActivity.objects.filter(user=user, attraction=attraction, exit_time__isnull=False).exists():
         if is_ajax:
-            return JsonResponse({'status': 'error', 'message': 'Not allowed'}, status=400)
-        messages.error(request, "いいねするには、まず出し物を体験してください。")
+            return JsonResponse({'status': 'error', 'message': 'Not allowed. User must have visited and exited the attraction.'}, status=400)
+        messages.error(request, "いいねするには、出し物を体験し退室した後に再度お試しください。")
         return redirect('manager:attraction_detail', attraction_id=attraction.id)
 
     like, created = Like.objects.get_or_create(user=user, attraction=attraction)
@@ -278,7 +282,6 @@ def signup_view(request):
             messages.success(request, 'ユーザー登録が完了しました。作成したアカウントでログインしてください。')
             return redirect('manager:login')
         else:
-            # ↓↓↓ この行を追加 ↓↓↓
             messages.error(request, '入力内容に誤りがあります。内容を確認して再度お試しください。')
     else:
         form = CustomUserCreationForm()
@@ -290,7 +293,6 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect('manager:attraction_list')
     if request.method == 'POST':
-        # form = AuthenticationForm(request, data=request.POST) # この行を書き換える
         form = CustomAuthenticationForm(request, data=request.POST) # こちらに変更
         if form.is_valid():
             username = form.cleaned_data.get('username')
@@ -313,7 +315,6 @@ def login_view(request):
                 else:
                     return redirect('manager:attraction_list')
     else:
-        # form = AuthenticationForm() # この行を書き換える
         form = CustomAuthenticationForm() # こちらに変更
     return render(request, 'manager/login.html', {'form': form})
 
