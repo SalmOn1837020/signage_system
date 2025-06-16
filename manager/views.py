@@ -225,16 +225,21 @@ def attraction_list(request):
     # データベースから全てのタグを取得する
     tags = Tag.objects.all()
 
-    current_time = timezone.now()
-    for attr in attractions: # Assuming attractions is a queryset
+    processed_attractions = []
+    current_time = timezone.now() # Define current_time once for consistency
+    for attr in attractions:
         if attr.is_theater:
-            attr.theatrical_status_info = get_theatrical_status(attr, current_time)
+            status_info = get_theatrical_status(attr, current_time)
+            print(f"DEBUG: Attraction ID {attr.id} ({attr.attraction_name}), is_theater: True, theatrical_status_info: {status_info}") # DEBUG LINE
+            attr.theatrical_status_info = status_info
         else:
-            attr.theatrical_status_info = None # Ensure attribute exists for all items
+            # print(f"DEBUG: Attraction ID {attr.id} ({attr.attraction_name}), is_theater: False, status: {attr.status}") # Optional debug for non-theater
+            attr.theatrical_status_info = None # Ensure attribute exists
+        processed_attractions.append(attr)
     
     # context辞書に、attractionsと"tags"の両方を入れる
     context = {
-        'attractions': attractions,
+        'attractions': processed_attractions, # Use the list with added attributes
         'tags': tags, # テンプレートでタグ情報を使用するため、コンテキストに含めます。
         'selected_tag_id': int(selected_tag_id) if selected_tag_id and selected_tag_id.isdigit() else None,
         'visited_attraction_ids': visited_attraction_ids,
