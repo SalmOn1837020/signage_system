@@ -230,7 +230,6 @@ def attraction_list(request):
     for attr in attractions:
         if attr.is_theater:
             status_info = get_theatrical_status(attr, current_time)
-            print(f"DEBUG: Attraction ID {attr.id} ({attr.attraction_name}), is_theater: True, theatrical_status_info: {status_info}") # DEBUG LINE
             attr.theatrical_status_info = status_info
         else:
             # print(f"DEBUG: Attraction ID {attr.id} ({attr.attraction_name}), is_theater: False, status: {attr.status}") # Optional debug for non-theater
